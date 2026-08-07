@@ -1,1 +1,1 @@
-WIP Chip8 emulator in Rust
+# WIP Chip8 emulator in Rust
