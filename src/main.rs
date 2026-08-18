@@ -49,16 +49,35 @@ fn registerss() -> HashMap<String,u8> {
     return registers;
 }
 
+fn term_display(grid : Vec<Vec<u8>> ) {
+    for row in grid {
+        for pixel in row{
+            if pixel == 1{
+                print!("#");
+            }
+            else {
+                print!(" ");
+            }
+        }
+        print!("\n");
+    }
+
+}
+
+
 
 fn main() {
     let program: String = load();
-    let mut mi: u16;
+    let mut mi: u16 = 0;
     let mut registers:HashMap<String, u8> = registerss();
-    let mut frame: Vec<Vec<u8>> = vec![vec![0u8; 64]; 32];
+    let mut frame: Vec<Vec<u8>> = vec![vec![0u8; 64]; 32]; // frame[y][x]
     let mut pc: u16 = 0x200;
     let mut _ra: u16;
     let mut current: &str;
-    let debug: bool = true; 
+    let debug: bool = false; 
+//    let mem: String = fs::read("IBM.ch8").expect("Failed to read file").iter().map(|byte| format!("{:08b}", byte)).collect();
+//    println!("{}",mem);
+
     //clear();
     while pc < 0x200 + (program.len() as u16) {
         current = &program[((pc as usize) - 0x200)..((pc as usize) - 0x1FC)];        
@@ -74,38 +93,53 @@ fn main() {
         else if &current[0..1] == "6" {
             if debug { println!("{}",&current)};
             registers.insert(current[1..2].to_string(), u8::from_str_radix(&current[2..4],16).unwrap()) ;
-            println!("{:?}",registers);
-
-
+            if debug { println!("{:?}",registers) };
         }
         else if &current[0..1] == "D" {
             if debug { println!("{}",&current)};
-            for i in 0..8 {
-                for j in 0..u8::from_str_radix(&current[3..4],16).unwrap() {
+            registers.insert("F".to_string(),0);
+            let mut j: u8 = 0;
+            for i in 0..u8::from_str_radix(&current[3..4],16).unwrap() { // N is how many bytes and since the sprite is 8 wide this is also denotes how tall a sprite will be
+                for bit in format!("{:08b}", u8::from_str_radix(&program[((mi as usize - 0x200) + (i as usize)) * 2 .. (((mi as usize - 0x200) + (i as usize)) * 2) + 2], 16).unwrap()).chars() { // uses mi to index program and then convert those hex character into binary for their sprite data
+                    if frame[ (registers[&current[2..3]]+i) as usize ][ (registers[&current[1..2]]+j) as usize ] == 1 && bit == '1' {      // 1^1 0
+                        frame[ (registers[&current[2..3]]+i) as usize ][ (registers[&current[1..2]]+j) as usize ] = 0;
+                        registers.insert("F".to_string(),1);
+                    }
+                    else if frame[ (registers[&current[2..3]]+i) as usize ][ (registers[&current[1..2]]+j) as usize ] == 0 && bit == '1' { // 0^1 1
+                        frame[ (registers[&current[2..3]]+i) as usize ][ (registers[&current[1..2]]+j) as usize ] = 1;
+                    }
+                    else if frame[ (registers[&current[2..3]]+i) as usize ][ (registers[&current[1..2]]+j) as usize ] == 1 && bit == '0' { // 1^0 1
+                        frame[ (registers[&current[2..3]]+i) as usize ][ (registers[&current[1..2]]+j) as usize ] = 1;
+                    }
+                    j+=1; 
+
+                }
+                j=0;
+
+            }
+        }
                     // (vx + i, vy+j)
-                    if frame[ (registers[&current[1..2]]+i) as usize ][ (registers[&current[2..3]]+j) as usize ] == 0 {
+/*                    if frame[ (registers[&current[1..2]]+i) as usize ][ (registers[&current[2..3]]+j) as usize ] == 0 {
                         frame[ (registers[&current[1..2]]+i) as usize ][ (registers[&current[2..3]]+j) as usize ] = 1;
                         
                     }
                     else if frame[ (registers[&current[1..2]]+i) as usize ][ (registers[&current[2..3]]+j) as usize ] == 1 {
                         frame[ (registers[&current[1..2]]+i) as usize ][ (registers[&current[2..3]]+j) as usize ] = 0;
                         
-                    }
+                    } */
 
 
-                }
-            }
-            
-        }
+
         else if &current[0..1] == "7" {
             if debug { println!("{}",&current)};
             registers.insert( (&current[1..2]).to_string() , u8::from_str_radix(&current[2..4], 16).unwrap() + registers[&current[1..2]]);
-            println!("{:?}",registers);
+            if debug { println!("{:?}",registers) };
             
         }
         else if &current[0..1] == "1" {
             if debug { println!("{}",&current)};
             pc = (u16::from_str_radix(&current[1..4],16).unwrap()  ) /2;
+            term_display(frame);
             panic!("fart");
         }
         
@@ -113,4 +147,5 @@ fn main() {
 
         pc+=0x4;
     }
+    
 }
