@@ -24,7 +24,7 @@ fn load() -> String {
 
 
 
-    let list2: Vec<String> = list.iter().map(ToString::to_string).collect();
+    let _list2: Vec<String> = list.iter().map(ToString::to_string).collect();
 
     let mut instructs: Vec<String> = Vec::new();
 
@@ -58,33 +58,57 @@ fn main() {
     let mut pc: u16 = 0x200;
     let mut _ra: u16;
     let mut current: &str;
+    let debug: bool = true; 
     //clear();
     while pc < 0x200 + (program.len() as u16) {
         current = &program[((pc as usize) - 0x200)..((pc as usize) - 0x1FC)];        
         println!("{}",current);
         if current == "00E0" {
+            if debug { println!("{}",&current)};
 //            clear();
         }
-        if &current[0..1] == "A"{
+        else if &current[0..1] == "A"{
+            if debug { println!("{}",&current)};
             mi = u16::from_str_radix(&current[1..4], 16).unwrap();
-            println!("{}",mi);
         }
         else if &current[0..1] == "6" {
+            if debug { println!("{}",&current)};
             registers.insert(current[1..2].to_string(), u8::from_str_radix(&current[2..4],16).unwrap()) ;
             println!("{:?}",registers);
 
 
         }
         else if &current[0..1] == "D" {
+            if debug { println!("{}",&current)};
             for i in 0..8 {
                 for j in 0..u8::from_str_radix(&current[3..4],16).unwrap() {
                     // (vx + i, vy+j)
-                    frame[ (registers[&current[1..2]]+i) as usize ][ (registers[&current[2..3]]+j) as usize ] = 1;
+                    if frame[ (registers[&current[1..2]]+i) as usize ][ (registers[&current[2..3]]+j) as usize ] == 0 {
+                        frame[ (registers[&current[1..2]]+i) as usize ][ (registers[&current[2..3]]+j) as usize ] = 1;
+                        
+                    }
+                    else if frame[ (registers[&current[1..2]]+i) as usize ][ (registers[&current[2..3]]+j) as usize ] == 1 {
+                        frame[ (registers[&current[1..2]]+i) as usize ][ (registers[&current[2..3]]+j) as usize ] = 0;
+                        
+                    }
+
 
                 }
             }
-            panic!("fart")
+            
         }
+        else if &current[0..1] == "7" {
+            if debug { println!("{}",&current)};
+            registers.insert( (&current[1..2]).to_string() , u8::from_str_radix(&current[2..4], 16).unwrap() + registers[&current[1..2]]);
+            println!("{:?}",registers);
+            
+        }
+        else if &current[0..1] == "1" {
+            if debug { println!("{}",&current)};
+            pc = (u16::from_str_radix(&current[1..4],16).unwrap()  ) /2;
+            panic!("fart");
+        }
+        
 
 
         pc+=0x4;
