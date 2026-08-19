@@ -1,41 +1,19 @@
 use std::fs;
 use std::process::Command;
 use std::collections::HashMap;
+use std::thread;
+use std::time::Duration;
 
 fn load() -> String {
     // 1. Specify the path to your ROM
-    let file_path = "IBM.ch8"; 
-
-    // 2. Read the file exactly as it is on the disk (Raw Bytes)
-    // This returns a Vec<u8> containing the machine code.
+    let file_path = "floppybird.rom"; 
     let rom_data: Vec<u8> = fs::read(file_path).expect("Failed to read the ROM file");
-    // 3. Convert the byte array into a readable Hex String
     let hex_string: String = rom_data
         .iter()
         .map(|byte| format!("{:02X}", byte)) // Format each byte as a 2-digit uppercase hex (e.g., "A2")
         .collect::<Vec<String>>()
         .join(" "); // Add a space between each byte for readability
-    let list: Vec<&str> = hex_string.split(" ").collect();
-    // Print the result to the console!
-//    println!("{:?}", list);
     let straight_string: String = rom_data.iter().map(|byte| format!("{:02X}",byte)).collect();
-    println!("{}",straight_string);
-
-
-
-
-    let _list2: Vec<String> = list.iter().map(ToString::to_string).collect();
-
-    let mut instructs: Vec<String> = Vec::new();
-
-
-    let mut j = 0;
-    for _i in 0..(list.len()/2){
-        instructs.push(format!("{}{}", list[j],list[j+1]));
-        j+=2;
-    }
-    println!("{:?}", instructs);
-//    println!("{}",instructs.len());
     return straight_string;
 }
 
@@ -49,10 +27,10 @@ fn registerss() -> HashMap<String,u8> {
     return registers;
 }
 
-fn term_display(grid : Vec<Vec<u8>> ) {
+fn term_display(grid : &Vec<Vec<u8>> ) {
     for row in grid {
         for pixel in row{
-            if pixel == 1{
+            if *pixel == 1{
                 print!("#");
             }
             else {
@@ -78,25 +56,22 @@ fn main() {
 //    let mem: String = fs::read("IBM.ch8").expect("Failed to read file").iter().map(|byte| format!("{:08b}", byte)).collect();
 //    println!("{}",mem);
 
-    //clear();
+
     while pc < 0x200 + (program.len() as u16) {
         current = &program[((pc as usize) - 0x200)..((pc as usize) - 0x1FC)];        
-        println!("{}",current);
+        if debug { println!("{}",&current)};
         if current == "00E0" {
-            if debug { println!("{}",&current)};
-//            clear();
+            
+            //clear();
         }
         else if &current[0..1] == "A"{
-            if debug { println!("{}",&current)};
             mi = u16::from_str_radix(&current[1..4], 16).unwrap();
         }
         else if &current[0..1] == "6" {
-            if debug { println!("{}",&current)};
             registers.insert(current[1..2].to_string(), u8::from_str_radix(&current[2..4],16).unwrap()) ;
             if debug { println!("{:?}",registers) };
         }
         else if &current[0..1] == "D" {
-            if debug { println!("{}",&current)};
             registers.insert("F".to_string(),0);
             let mut j: u8 = 0;
             for i in 0..u8::from_str_radix(&current[3..4],16).unwrap() { // N is how many bytes and since the sprite is 8 wide this is also denotes how tall a sprite will be
@@ -117,34 +92,68 @@ fn main() {
                 j=0;
 
             }
+            term_display(&frame);
+            thread::sleep(Duration::from_millis(500));
         }
-                    // (vx + i, vy+j)
-/*                    if frame[ (registers[&current[1..2]]+i) as usize ][ (registers[&current[2..3]]+j) as usize ] == 0 {
-                        frame[ (registers[&current[1..2]]+i) as usize ][ (registers[&current[2..3]]+j) as usize ] = 1;
-                        
-                    }
-                    else if frame[ (registers[&current[1..2]]+i) as usize ][ (registers[&current[2..3]]+j) as usize ] == 1 {
-                        frame[ (registers[&current[1..2]]+i) as usize ][ (registers[&current[2..3]]+j) as usize ] = 0;
-                        
-                    } */
-
 
 
         else if &current[0..1] == "7" {
-            if debug { println!("{}",&current)};
             registers.insert( (&current[1..2]).to_string() , u8::from_str_radix(&current[2..4], 16).unwrap() + registers[&current[1..2]]);
             if debug { println!("{:?}",registers) };
             
         }
         else if &current[0..1] == "1" {
-            if debug { println!("{}",&current)};
-            pc = (u16::from_str_radix(&current[1..4],16).unwrap()  ) /2;
-            term_display(frame);
-            panic!("fart");
+            pc = 0x200 + (( u16::from_str_radix(&current[1..4],16).unwrap() - 0x200) *2); // All the necessary shifting in order to get PC to the right next opcode
+            if debug {println!("PC {}",pc)};
+            if debug {println!("asdasd{}", &program[((pc as usize) - 0x200)..((pc as usize) - 0x1FC)] ) };
+            pc -= 0x4;
+            //panic!("help")
+
+
         }
-        
-
-
+        else if &current[0..1] == "3" {
+            if registers[&current[1..2].to_string()] != u8::from_str_radix(&current[2..4], 16).unwrap() {
+            }
+            else {
+                pc+=0x4;
+            }
+        }
+        else if &current[0..1] == "4" {
+            if registers[&current[1..2].to_string()] == u8::from_str_radix(&current[2..4], 16).unwrap() {
+            }
+            else {
+                pc+=0x4;
+            }
+        }
+        else if &current[0..1] == "5" {
+            if registers[&current[1..2].to_string()] != registers[&current[2..3].to_string()] {
+            }
+            else {
+                pc+=0x4;
+            }
+        }
+        else if &current[0..1] == "6" {
+            registers.insert(current[1..2].to_string(), u8::from_str_radix(&current[2..4], 16).unwrap() );
+        }
+        else if &current[0..1] == "8" && &current[3..4] == "0"{
+            registers.insert(current[1..2].to_string(), registers[&current[2..3]]);
+        }
+        else if &current[0..1] == "8" && &current[3..4] == "1"{
+            registers.insert(current[1..2].to_string(), registers[&current[1..2]] | registers[&current[2..3]]);
+        }
+        else if &current[0..1] == "8" && &current[3..4] == "2"{
+            registers.insert(current[1..2].to_string(), registers[&current[1..2]] & registers[&current[2..3]]);
+        }
+        else if &current[0..1] == "8" && &current[3..4] == "3"{
+            registers.insert(current[1..2].to_string(), registers[&current[1..2]] ^ registers[&current[2..3]]);
+        }
+        else if &current[0..1] == "8" && &current[3..4] == "4" {
+            let (result, carry) = registers[&current[1..2]].overflowing_add(registers[&current[3..4]]);
+            registers.insert(current[0..1].to_string(), result);
+            if carry {
+                registers.insert("F".to_string(), 1);
+            }
+        }
         pc+=0x4;
     }
     
