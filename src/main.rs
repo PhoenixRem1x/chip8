@@ -8,11 +8,11 @@ fn load() -> String {
     // 1. Specify the path to your ROM
     let file_path = "floppybird.rom"; 
     let rom_data: Vec<u8> = fs::read(file_path).expect("Failed to read the ROM file");
-    let hex_string: String = rom_data
-        .iter()
-        .map(|byte| format!("{:02X}", byte)) // Format each byte as a 2-digit uppercase hex (e.g., "A2")
-        .collect::<Vec<String>>()
-        .join(" "); // Add a space between each byte for readability
+    // let hex_string: String = rom_data
+    //     .iter()
+    //     .map(|byte| format!("{:02X}", byte)) // Format each byte as a 2-digit uppercase hex (e.g., "A2")
+    //     .collect::<Vec<String>>()
+    //     .join(" "); // Add a space between each byte for readability
     let straight_string: String = rom_data.iter().map(|byte| format!("{:02X}",byte)).collect();
     return straight_string;
 }
@@ -148,11 +148,45 @@ fn main() {
             registers.insert(current[1..2].to_string(), registers[&current[1..2]] ^ registers[&current[2..3]]);
         }
         else if &current[0..1] == "8" && &current[3..4] == "4" {
+            registers.insert("F".to_string(), 0);
             let (result, carry) = registers[&current[1..2]].overflowing_add(registers[&current[3..4]]);
             registers.insert(current[0..1].to_string(), result);
             if carry {
                 registers.insert("F".to_string(), 1);
             }
+        }
+        else if &current[0..1] == "8" && &current[3..4] == "5" {
+            registers.insert("F".to_string(), 0);
+            let (result, underflow) = registers[&current[1..2]].overflowing_sub(registers[&current[2..3]]);
+            registers.insert(current[0..1].to_string(), result);
+            if underflow {
+                registers.insert("F".to_string(), 1);
+            }
+        }
+        else if &current[0..1] == "8" && &current[3..4] == "6" {
+            registers.insert("F".to_string(), 0);
+            let binary: String = format!("{:08b}", registers[&current[1..2]]); 
+            if binary.chars().last().unwrap() == '1' {
+                registers.insert("F".to_string(),1);
+            }
+            registers.insert(current[1..2].to_string(), registers[&current[1..2]] >> 1);
+        }
+        else if &current[0..1] == "8" && &current[3..4] == "7" {
+            registers.insert("F".to_string(), 0);
+            let (result, underflow) = registers[&current[2..3]].overflowing_sub(registers[&current[1..2]]);
+            registers.insert(current[0..1].to_string(), result);
+            if underflow {
+                registers.insert("F".to_string(), 1);
+            }
+
+        }
+        else if &current[0..1] == "8" && &current[3..4] == "E" {
+            registers.insert("F".to_string(), 0);
+            let binary: String = format!("{:08b}", registers[&current[1..2]]); 
+            if binary.starts_with('1') {
+                registers.insert("F".to_string(),1);
+            }
+            registers.insert(current[1..2].to_string(), registers[&current[1..2]] << 1);
         }
         pc+=0x4;
     }
