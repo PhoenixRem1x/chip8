@@ -3,10 +3,14 @@ use std::process::Command;
 use std::collections::HashMap;
 use std::thread;
 use std::time::Duration;
+use rand::Rng;
+use crossterm::event::{poll, read, Event, KeyCode, KeyEventKind, KeyModifiers};
+use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
+use std::io::{self, Write};
 
 fn load() -> String {
     // 1. Specify the path to your ROM
-    let file_path = "floppybird.rom"; 
+    let file_path = "IBM.ch8"; 
     let rom_data: Vec<u8> = fs::read(file_path).expect("Failed to read the ROM file");
     // let hex_string: String = rom_data
     //     .iter()
@@ -28,6 +32,8 @@ fn registerss() -> HashMap<String,u8> {
 }
 
 fn term_display(grid : &Vec<Vec<u8>> ) {
+    print!("\x1B[1;1H");
+
     for row in grid {
         for pixel in row{
             if *pixel == 1{
@@ -37,7 +43,7 @@ fn term_display(grid : &Vec<Vec<u8>> ) {
                 print!(" ");
             }
         }
-        print!("\n");
+        print!("\r\n");
     }
 
 }
@@ -52,17 +58,51 @@ fn main() {
     let mut pc: u16 = 0x200;
     let mut _ra: u16;
     let mut current: &str;
-    let debug: bool = false; 
+    let debug: bool = false;
+    let mut key: KeyCode = KeyCode::Char('-');
 //    let mem: String = fs::read("IBM.ch8").expect("Failed to read file").iter().map(|byte| format!("{:08b}", byte)).collect();
 //    println!("{}",mem);
 
-
+    enable_raw_mode().unwrap();
     while pc < 0x200 + (program.len() as u16) {
         current = &program[((pc as usize) - 0x200)..((pc as usize) - 0x1FC)];        
         if debug { println!("{}",&current)};
+
+
+        if poll(Duration::from_millis(0)).unwrap() {
+            if let Event::Key(key_event) = read().unwrap() {
+                if key_event.kind == KeyEventKind::Press {
+                    println!("Pressed: {:?}\n\r", key_event.code);
+                    key = key_event.code;
+                    // 2. Handle quitting gracefully
+                    let is_ctrl_c = key_event.code == KeyCode::Char('c') 
+                        && key_event.modifiers.contains(KeyModifiers::CONTROL);
+
+                    if key_event.code == KeyCode::Esc || is_ctrl_c {
+                        disable_raw_mode().unwrap();
+                        break; // Break the loop to exit
+                    }
+                }
+                else {
+                    key = KeyCode::Char('-'); //If somebody ever uses this in their program GGs
+                }
+            }
+        }
+
+
+
         if current == "00E0" {
-            
-            //clear();
+            if current == "00E0" {
+            // 1. Wipe your internal frame buffer back to all 0s
+            for row in frame.iter_mut() {
+                for pixel in row.iter_mut() {
+                    *pixel = 0;
+                }
+            }
+            // 2. Tell the terminal to clear everything and reset the cursor
+            print!("\x1B[2J\x1B[1;1H");
+            io::stdout().flush().unwrap();
+            }
         }
         else if &current[0..1] == "A"{
             mi = u16::from_str_radix(&current[1..4], 16).unwrap();
@@ -103,6 +143,9 @@ fn main() {
             
         }
         else if &current[0..1] == "1" {
+            if  0x200 + (( u16::from_str_radix(&current[1..4],16).unwrap() - 0x200) *2) == pc { //If were jumping to itself, its the end of the program
+                break;
+            }
             pc = 0x200 + (( u16::from_str_radix(&current[1..4],16).unwrap() - 0x200) *2); // All the necessary shifting in order to get PC to the right next opcode
             if debug {println!("PC {}",pc)};
             if debug {println!("asdasd{}", &program[((pc as usize) - 0x200)..((pc as usize) - 0x1FC)] ) };
@@ -188,7 +231,29 @@ fn main() {
             }
             registers.insert(current[1..2].to_string(), registers[&current[1..2]] << 1);
         }
+        else if &current[0..1] == "9"{
+            if registers[&current[1..2]] != registers[&current[2..3]]{
+                pc+=0x4;
+            }
+        }
+        else if &current[0..1] == "A"{
+            pc = 0x200 + (( u16::from_str_radix(&current[1..4],16).unwrap() - 0x200 + registers["0"] as u16) *2); 
+            pc -=0x4;
+        }
+        else if &current[0..1] == "C"{
+            registers.insert(current[1..2].to_string(), rand::random::<u8>() & u8::from_str_radix(&current[2..4], 16).unwrap() );
+        }
+        else if &current[0..1] == "E" && &current[2..4] == "9E" {
+            if key == KeyCode::Char(registers[&current[1..2]] as char) {
+                pc+=0x4;
+            }
+        }
+        else if &current[0..1] == "E" && &current[2..4] == "A1" {
+            if key != KeyCode::Char(registers[&current[1..2]] as char) {
+                pc+=0x4;
+            }
+        }
         pc+=0x4;
     }
-    
+    disable_raw_mode().unwrap();
 }
